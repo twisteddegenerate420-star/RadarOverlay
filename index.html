@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Callahan Master Overlay</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- RADAR SECTION (Bottom Right) --- */
+        #radar-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 280px;
+            height: 280px;
+            z-index: 5;
+        }
+
+        #weather-map {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #32CD32;
+            overflow: hidden;
+            -webkit-mask-image: radial-gradient(circle, black 50%, transparent 75%);
+            mask-image: radial-gradient(circle, black 50%, transparent 75%);
+        }
+
+        .radar-sweep {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, rgba(50, 205, 50, 0.3) 0deg, transparent 90deg);
+            border-radius: 50%;
+            animation: sweep 8s linear infinite;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* --- CLOCK & DATA SECTION (Bottom Left) --- */
+        #data-stack {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #32CD32;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+        }
+
+        #greeting {
+            color: #FFD700;
+            font-style: italic;
+            font-weight: 900;
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        #clock {
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+
+        #weather-info {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        
+        .red-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: red; border-radius: 50%;
+            margin-right: 5px; animation: blink 1s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="radar-container">
+        <div id="weather-map"></div>
+        <div class="radar-sweep"></div>
+        <div style="position:absolute; bottom:15%; width:100%; text-align:center; z-index:10; color:red; font-weight:bold; font-size:12px;">
+            <span class="red-dot"></span>LIVE RADAR
+        </div>
+    </div>
+
+    <div id="data-stack">
+        <div id="greeting">Welcome In Mother Truckers</div>
+        <div id="clock">00:00:00</div>
+        <div id="weather-info">FETCHING GPS...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. CLOCK LOGIC
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('clock').innerText = timeStr;
+        }
+        setInterval(updateClock, 1000);
+
+        // 2. MAP & RADAR LOGIC
+        const map = L.map('weather-map', {
+            zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false
+        }).setView([39.82, -98.57], 6);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        const radarLayer = L.tileLayer('https://tile.openstreetmap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=2657adfea056a489d46852b3eb889740').addTo(map);
+
+        // 3. GPS FOLLOW-ME LOGIC
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                map.setView([lat, lon], 7);
+                
+                // Fetch local weather text based on GPS
+                fetch(`https://wttr.in/${lat},${lon}?format=%t+%C&u`)
+                    .then(r => r.text())
+                    .then(data => {
+                        document.getElementById('weather-info').innerText = data.toUpperCase();
+                    });
+            }, null, { enableHighAccuracy: true });
+        }
+
+        // Refresh radar tiles every 5 mins
+        setInterval(() => { radarLayer.redraw(); }, 300000);
+    </script>
+</body>
+</html>
